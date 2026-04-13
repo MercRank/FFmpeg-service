@@ -1,7 +1,6 @@
 import express from "express";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import fs from "fs";
-import path from "path";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -9,7 +8,7 @@ app.use(express.json({ limit: "50mb" }));
 const PORT = process.env.PORT || 3000;
 
 app.post("/convert", async (req, res) => {
-  const { inputUrl, format = "mp3" } = req.body;
+  const { inputUrl, format = "mp4", filters } = req.body;
 
   if (!inputUrl) {
     return res.status(400).json({ error: "inputUrl required" });
@@ -17,9 +16,21 @@ app.post("/convert", async (req, res) => {
 
   const output = `/tmp/output.${format}`;
 
-  const cmd = `ffmpeg -i "${inputUrl}" -vn -acodec libmp3lame "${output}"`;
+  const args = ["-i", inputUrl];
 
-  exec(cmd, (error) => {
+  // 👉 если есть фильтры (например crop)
+  if (filters) {
+    args.push("-vf", filters);
+  }
+
+  // 👉 если это видео — не режем звук
+  if (format === "mp3") {
+    args.push("-vn", "-acodec", "libmp3lame");
+  }
+
+  args.push("-y", output);
+
+  execFile("ffmpeg", args, (error) => {
     if (error) {
       return res.status(500).json({ error: error.message });
     }
